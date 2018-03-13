@@ -46,7 +46,7 @@ object Builtins {
           def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, r: R): D = ???
           def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, x6: D, x6b: P, r: R): D = ???
           def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, x6: D, x6b: P, x7: D, x7b: P, r: R): D = ???
-          def apply(rec: Lambda, xs: Array[Slot], r: R) = ???
+          def apply(rec: Lambda, unboxed: Array[Double], boxed: Array[Param], r: R) = ???
           def decompile = term(decompileSlot(x0, x0b))
         }; 0.0 }
 
@@ -58,7 +58,7 @@ object Builtins {
         def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, r: R): D = ???
         def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, x6: D, x6b: P, r: R): D = ???
         def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, x6: D, x6b: P, x7: D, x7b: P, r: R): D = ???
-        def apply(rec: Lambda, xs: Array[Slot], r: R) = ???
+        def apply(rec: Lambda, unboxed: Array[Double], boxed: Array[Param], r: R) = ???
         def decompile = term
       }
     }(term)

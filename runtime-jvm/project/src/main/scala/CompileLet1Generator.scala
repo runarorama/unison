@@ -26,10 +26,10 @@ object CompileLet1Generator extends OneFileGenerator("CompileLet1.scala") {
               bEq(applySignature(maxInlineStack)) {
                 "val b = " + eval(maxInlineStack, "binding") <>
                 "val br = r.boxed" <>
-                ("body(rec, Array(Slot(b, br)"
-                  + commaIf(maxInlineStack)
-                  + (0 until maxInlineStack).commas(slot)
-                  + "), r)")
+                ("body(rec, "
+                  + array("b" +: (0 until maxInlineStack).map("x" + _)) + ", "
+                  + array("br" +: (0 until maxInlineStack).map("x" + _ + "b"))
+                  + ", r)")
               }
             } <>
             s"new $className"
@@ -41,7 +41,7 @@ object CompileLet1Generator extends OneFileGenerator("CompileLet1.scala") {
                 "// evaluate binding and push onto stack for evaluating body" <>
                 "val b = " + evalN("binding") <>
                 "val br = r.boxed" <>
-                "body(rec, Slot(b, br) +: xs, r)"
+                "body(rec, b +: unboxed, br +: boxed, r)"
               }
             } <>
             s"new $className"

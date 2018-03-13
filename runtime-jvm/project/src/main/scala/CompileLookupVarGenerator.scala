@@ -21,9 +21,9 @@ object CompileLookupVarGenerator extends OneFileGenerator("CompileLookupVar.scal
           `case`("i") {
             b("class LookupVarN extends ComputationN(i+1, decompile)") {
               bEq(applyNSignature) {
-                "val x = xs(i)" <>
-                "if (x.boxed eq null) { r.boxed = null; x.unboxed }" <>
-                "else x.boxed(r)"
+                "val b = boxed(i)" <>
+                "if (b eq null) { r.boxed = null; unboxed(i) }" <>
+                "else b(r)"
               }
             } <>
             "new LookupVarN"
@@ -43,7 +43,7 @@ object CompileLookupVarGenerator extends OneFileGenerator("CompileLookupVar.scal
           } <<>>
           `case`("i") {
             b("class LookupRefN extends ParamLookupN(i+1)") {
-              applyNSignatureP + " = xs(i).boxed"
+              applyNSignatureP + " = boxed(i)"
             } <>
             "new LookupRefN"
           }

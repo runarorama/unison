@@ -4,7 +4,7 @@ object ValueGenerator extends OneFileGenerator("Value.scala") {
   private def applyRBoxed(args: String): String =
     match1("(r.boxed: @unchecked)") { caseInline("lambda: Lambda") { s"lambda(lambda, " + args + commaIf(args.length) + "r) "}}
   private def applyRBoxed(i: Int): String = applyRBoxed(xsArgs(i))
-  private def applyRBoxedN: String = applyRBoxed("xs")
+  private def applyRBoxedN: String = applyRBoxed("unboxed, boxed")
 
   def source =
     "package org.unisonweb.compilation" <>
@@ -118,8 +118,8 @@ object ValueGenerator extends OneFileGenerator("Value.scala") {
       s"// over-application with ${N+1} or more args: all $expected arguments + at least ${N+1-expected} more" <>
         bEq(applyNSignature) {
           s"apply(rec, ${xsArgs(expected)}, r)" <>
-          `match`(s"xs.drop($expected)") {
-            "case xs => " + switch("xs.length") {
+          `match`(s"(unboxed.drop($expected), boxed.drop($expected))") {
+            "case (unboxed, boxed) => " + switch("unboxed.length") {
               ((N+1-expected) to N).each { i => caseInline(i)(applyRBoxed(i)) } <>
               s"case n if n > $N => $applyRBoxedN"
             }
@@ -175,12 +175,13 @@ object ValueGenerator extends OneFileGenerator("Value.scala") {
       } <>
       "" <>
       bEq(applyNSignature) {
-        "if (xs.length == argNames.length) compiledBody(rec, xs, r)" <>
-        b("else if (xs.length < argNames.length)") {
+        "assert(boxed.length == unboxed.length)" <>
+        "if (unboxed.length == argNames.length) compiledBody(rec, unboxed, boxed, r)" <>
+        b("else if (unboxed.length < argNames.length)") {
           "// under-application" <>
-          "val unboundNames = argNames.drop(xs.length)" <>
-          `match`(b("ABT.substs((0 until xs.length).map") {
-            "i => val x = xs(xs.length - 1 - i); (argNames(i), Term.Compiled(Param(x.unboxed, x.boxed)))"
+          "val unboundNames = argNames.drop(unboxed.length)" <>
+          `match`(b("ABT.substs((0 until unboxed.length).map") {
+            "i => (argNames(i), Term.Compiled(Param(unboxed(unboxed.length - 1 - i), boxed(boxed.length - 1 - i))))"
           } + ".toMap -- unboundNames)(unTermC(body))") {
             `case`("body") {
               "val lam2 = Term.Lam(unboundNames: _*)(body)" <>
@@ -194,10 +195,10 @@ object ValueGenerator extends OneFileGenerator("Value.scala") {
         } <>
         b("else") {
           "// over-application" <>
-          "apply(rec, xs.take(argNames.length), r)" <>
-          match1("xs.drop(argNames.length)") {
-            caseInline("xs") {
-              switch("xs.length") {
+          "apply(rec, unboxed.take(argNames.length), boxed.take(argNames.length), r)" <>
+          match1("(unboxed.drop(argNames.length), boxed.drop(argNames.length))") {
+            caseInline("(unboxed, boxed)") {
+              switch("unboxed.length") {
                 (1 to N).each { i => caseInline(i)(applyRBoxed(xsArgs(i))) } <>
                 s"case n if n > $N => $applyRBoxedN"
               }

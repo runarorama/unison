@@ -65,7 +65,7 @@ object CompileFunctionApplicationGenerator extends OneFileGenerator("CompileFunc
       "rec, " + (0 until argCount).commas(i => s"x${i}, x${i}b") + commaIf(argCount) + "r"
 
     def evalArgsN(argCount: Int) =
-      evalArgsPrefixStr + (argCount - 1 to 0 by -1).commas(i => s"arg${i}(rec, xs, r), r.boxed") + commaIf(argCount) + "r"
+      evalArgsPrefixStr + (argCount - 1 to 0 by -1).commas(i => s"arg${i}(rec, unboxed, boxed, r), r.boxed") + commaIf(argCount) + "r"
 
     bEq(s"def $defName(e: TermC, " + declArgsPrefix.map(_ + ", ").getOrElse("") + "args: Array[Computation]): Computation") {
       switch("stackSize(e)") {
@@ -88,15 +88,15 @@ object CompileFunctionApplicationGenerator extends OneFileGenerator("CompileFunc
                 val className = s"${classPrefix}S${stackSize}AN"
                 b(s"class $className extends Computation${stackSize}(e, ())") {
                   bEq(applySignature(stackSize)) {
-                    "val slots = new Array[Slot](argCount)" <>
+                    "val unboxedArgs = new Array[Double](argCount)" <>
+                    "val boxedArgs = new Array[Param](argCount)" <>
                     "var i = 0" <>
                     b("while (i < argCount)") {
-                      "val slot = slots(argCount - 1 - i)" <>
-                      s"slot.unboxed = " + catchTC(s"args(i)(${xEvalArgs(stackSize)})") <>
-                      s"slot.boxed = r.boxed" <>
+                      s"unboxedArgs(argCount - 1 - i) = " + catchTC(s"args(i)(${xEvalArgs(stackSize)})") <>
+                      s"boxedArgs(argCount - 1 - i) = r.boxed" <>
                       "i += 1"
                     } <>
-                    s"$evalFn(${evalArgsPrefixStr}slots, r)"
+                    s"$evalFn(${evalArgsPrefixStr}unboxedArgs, boxedArgs, r)"
                   }
                 } <>
                 s"new $className"
@@ -122,15 +122,15 @@ object CompileFunctionApplicationGenerator extends OneFileGenerator("CompileFunc
               val className = s"${classPrefix}SNAN"
               b(s"class $className extends ComputationN(stackSize, e, ())") {
                 bEq(applyNSignature) {
-                  "val slots = new Array[Slot](argCount)" <>
+                  "val unboxedArgs = new Array[Double](argCount)" <>
+                  "val boxedArgs = new Array[Param](argCount)" <>
                   "var i = 0" <>
                   b("while (i < argCount)") {
-                    "val slot = slots(argCount - 1 - i)" <>
-                      s"slot.unboxed = " + catchTC(s"args(i)(rec, xs, r)") <>
-                      s"slot.boxed = r.boxed" <>
-                      "i += 1"
+                    s"unboxedArgs(argCount - 1 - i) = " + catchTC(s"args(i)(rec, unboxed, boxed, r)") <>
+                    s"boxedArgs(argCount - 1 - i) = r.boxed" <>
+                    "i += 1"
                   } <>
-                  s"$evalFn(${evalArgsPrefixStr}slots, r)"
+                  s"$evalFn(${evalArgsPrefixStr}unboxedArgs, boxedArgs, r)"
                 }
               } <>
               s"new $className"
@@ -169,17 +169,19 @@ object CompileFunctionApplicationGenerator extends OneFileGenerator("CompileFunc
                 val className = s"Dynamic${emptyOrNon}TailCallS${stackSize}AN"
                 b(s"class $className extends Computation$stackSize(e, ())") {
                   bEq(applySignature(stackSize)) {
-                    "val argsr = new Array[Slot](argCount)" <>
+                    "val unboxedArgsr = new Array[Double](argCount)" <>
+                    "val boxedArgsr = new Array[Param](argCount)" <>
                     s"val lambda = ${tailEvalBoxed(stackSize, "mkFn")}.asInstanceOf[Lambda]" <>
                     "var k = 0" <>
                     b("while (k < argCount)") {
-                      "argsr(argCount - 1 - k) = new Slot(" + tailEval(stackSize, "args(k)") + ", r.boxed)" <>
+                      "unboxedArgsr(argCount - 1 - k) = " + tailEval(stackSize, "args(k)") <>
+                      "boxedArgsr(argCount - 1 - k) = r.boxed" <>
                       "k += 1"
                     } <>
                       (if (isTail)
-                        "tailCall(lambda, argsr, r)"
+                        "tailCall(lambda, unboxedArgsr, boxedArgsr, r)"
                       else
-                        "lambda(lambda, argsr, r)")
+                        "lambda(lambda, unboxedArgsr, boxedArgsr, r)")
                   }
                 } <>
                 s"new $className"
@@ -207,15 +209,17 @@ object CompileFunctionApplicationGenerator extends OneFileGenerator("CompileFunc
               val className = s"Dynamic${emptyOrNon}TailCallSNAM"
               b(s"class $className extends ComputationN(argCount, e, ())") {
                 bEq(applyNSignature) {
-                  "val argsr = new Array[Slot](argCount)" <>
+                  "val unboxedArgsr = new Array[Double](argCount)" <>
+                  "val boxedArgsr = new Array[Param](argCount)" <>
                   s"val lambda = ${tailEvalNBoxed("mkFn")}.asInstanceOf[Lambda]" <>
                   "var k = 0" <>
                   b("while (k < argCount)") {
-                    "argsr(argCount - 1 - k) = new Slot(" + tailEvalN("args(k)") + ", r.boxed)" <>
+                    "unboxedArgsr(argCount - 1 - k) = " + tailEvalN("args(k)") <>
+                    "boxedArgsr(argCount - 1 - k) = r.boxed" <>
                     "k += 1"
                   } <>
-                  (if (!isTail) "lambda(lambda, argsr, r)"
-                  else "tailCall(lambda, argsr, r)")
+                  (if (!isTail) "lambda(lambda, unboxedArgsr, boxedArgsr, r)"
+                  else "tailCall(lambda, unboxedArgsr, boxedArgsr, r)")
                 }
               } <>
               s"new $className"

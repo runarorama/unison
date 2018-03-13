@@ -6,8 +6,9 @@ object CompileLetRecGenerator extends OneFileGenerator("CompileLetRec.scala") {
 
   private def loopXsArgs(i: Int): String = loopXsArgs(0, i)
 
+  // TODO: consider reducing i by maxInlineTC
   private def loopXsArgs(i: Int, j: Int): String =
-    (i until j).commas(i => s"r.xs($i).unboxed, r.xs($i).boxed")
+    (i until j).commas(i => s"r.xs($i), r.xsb($i)")
 
   private def tryStep(argCount: Int) =
     s"try step(step, ${xArgs(argCount)}, r)" <>
@@ -24,11 +25,11 @@ object CompileLetRecGenerator extends OneFileGenerator("CompileLetRec.scala") {
       }
 
   private def tryStepN =
-    s"try step(step, xs, r)" <>
+    s"try step(step, unboxed, boxed, r)" <>
     b("catch") {
       `case`("SelfTailCall") {
         b("while(true)") {
-          s"try return step(step, r.xs, r)" <>
+          s"try return step(step, r.xs, r.xsb, r)" <>
           "catch { case SelfTailCall => }"
         } <>
         """sys.error("reached unreachable code")"""
@@ -60,10 +61,10 @@ object CompileLetRecGenerator extends OneFileGenerator("CompileLetRec.scala") {
                              (argCount to 1 by -1).commas(l => s"0.0, b${l}r") + commaIf(stackSize) +
                                (0 until stackSize).commas(l => s"x$l, x${l}b")
                            else
-                             "Array(" +
-                               (argCount to 1 by -1).commas(l => s"Slot(0.0, b${l}r)") + commaIf(stackSize) +
-                               (0 until stackSize).commas(l => s"Slot(x$l, x${l}b)") +
-                               ")"
+                             array((argCount to 1 by -1).map(_ => "0.0") ++
+                                   (0 until stackSize).map(l => s"x$l")) + ", " +
+                             array((argCount to 1 by -1).map(l => s"b${l}r") ++
+                                   (0 until stackSize).map(l => s"x${l}b"))
                          (1 to argCount).each { k => s"lazy val b${k}r: Ref = Ref(b${k}n, " <>
                          "  Value(" + catchTC(s"b$k(rec, $bArgs, r)") + ", r.boxed)" <> ")"
                          } <>
@@ -76,11 +77,14 @@ object CompileLetRecGenerator extends OneFileGenerator("CompileLetRec.scala") {
                  `case`("/* argCount = */ m") {
                    b(s"class LetRecS${stackSize}AM extends Computation$stackSize(e, ())") {
                      bEq(applySignature(stackSize)) {
-                       "val xs = Array[Slot](" + (0 until stackSize).commas(k => s"Slot(x$k,x${k}b)") + ")" <>
-                       "lazy val slots: Array[Slot] = bindings.view.map { case (name,b) => " <>
-                       "  Slot(0.0, Ref(name, Value(try { b(rec, slots, r) } catch { case e: TC => loop(r) }, r.boxed)))" <>
-                       "}.reverse.toArray ++ xs" <>
-                       "body(rec, slots, r)"
+                       "val unboxed: Array[Double] = " + array((0 until stackSize).map(k => s"x$k")) <>
+                       "val boxed: Array[Param] = " + array((0 until stackSize).map(k => s"x${k}b")) <>
+                       "// Init to zeroes" <>
+                       "val unboxedB = new Array[Double](bindings.size) ++ unboxed" <>
+                       "lazy val boxedB: Array[Param] = bindings.view.map { case (name, b) => " <>
+                       "  Ref(name, Value(try { b(rec, unboxedB, boxedB, r) } catch { case e: TC => loop(r) }, r.boxed)) : Param" <>
+                       "}.reverse.toArray ++ boxedB" <>
+                       "body(rec, unboxedB, boxedB, r)"
                      }
                    } <>
                      s"new LetRecS${stackSize}AM"
@@ -91,10 +95,11 @@ object CompileLetRecGenerator extends OneFileGenerator("CompileLetRec.scala") {
            `case`("/* stackSize = */ n") {
              b(s"class LetRecSN extends ComputationN(n, e, ())") {
                bEq(applyNSignature) {
-                 "lazy val slots: Array[Slot] = bindings.view.map { case (name,b) => " <>
-                 "  Slot(0.0, Ref(name, Value(try { b(rec, slots, r) } catch { case e: TC => loop(r) }, r.boxed)))" <>
-                 "}.reverse.toArray ++ xs" <>
-                 "body(rec, slots, r)"
+                 "val unboxedB = new Array[Double](bindings.size) ++ unboxed" <>
+                 "lazy val boxedB: Array[Param] = bindings.view.map { case (name, b) => " <>
+                 "  Ref(name, Value(try { b(rec, unboxedB, boxedB, r) } catch { case e: TC => loop(r) }, r.boxed)): Param" <>
+                 "}.reverse.toArray ++ boxedB" <>
+                 "body(rec, unboxedB, boxedB, r)"
                }
              } <>
              "new LetRecSN"
@@ -159,7 +164,7 @@ object CompileLetRecGenerator extends OneFileGenerator("CompileLetRec.scala") {
                           val className = s"LetRecBindingSNA$argCount"
                           b(s"class $className extends ComputationN(stackSize, decompile)") (
                             bEq(applyNSignature) (
-                              s"val step = { mkLambda(null, xs, r); r.boxed.asInstanceOf[Lambda] }" <<>>
+                              s"val step = { mkLambda(null, unboxed, boxed, r); r.boxed.asInstanceOf[Lambda] }" <<>>
                               b(s"class Body extends Computation$argCount(step.decompile)") {
                                 bEq(applySignature(argCount)) {
                                   tryStep(argCount)
@@ -177,7 +182,7 @@ object CompileLetRecGenerator extends OneFileGenerator("CompileLetRec.scala") {
                         val className = "LetRecBindingSNAM"
                         b(s"class $className extends ComputationN(stackSize, decompile)") (
                           bEq(applyNSignature) (
-                            s"val step = { mkLambda(null, xs, r); r.boxed.asInstanceOf[Lambda] }" <<>>
+                            s"val step = { mkLambda(null, unboxed, boxed, r); r.boxed.asInstanceOf[Lambda] }" <<>>
 
                             b("class Body extends ComputationN(argCount, step.decompile)") {
                               bEq(applyNSignature) {

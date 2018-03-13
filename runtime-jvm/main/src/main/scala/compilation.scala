@@ -5,8 +5,6 @@ import org.unisonweb.Term.{Name, Term}
 import org.unisonweb.util.Lazy
 
 package compilation {
-  case class Slot(var unboxed: D, var boxed: P)
-
   case class CurrentRec(get: Option[(Name, Arity)]) extends AnyVal {
     def isEmpty = get.isEmpty
     def contains(name: Name): Boolean = get.exists(_._1 == name)
