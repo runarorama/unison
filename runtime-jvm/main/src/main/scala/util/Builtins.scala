@@ -1,4 +1,4 @@
-package org.unisonweb.benchmark
+package org.unisonweb.util
 
 import org.unisonweb.Term
 import org.unisonweb.Term.{Name, Term}
@@ -46,11 +46,8 @@ object Builtins {
           def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, x6: D, x6b: P, r: R): D = ???
           def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, x2: D, x2b: P, x3: D, x3b: P, x4: D, x4b: P, x5: D, x5b: P, x6: D, x6b: P, x7: D, x7b: P, r: R): D = ???
           def apply(rec: Lambda, unboxed: Array[Double], boxed: Array[Param], r: R) = ???
-          def decompileSlot(unboxed: D, boxed: P): Term =
-            if (boxed eq null) Term.Num(unboxed)
-            else boxed.decompile
 
-          def decompile = term(decompileSlot(x0, x0b))
+          def decompile = Param(x0, x0b).decompile
         }; 0.0 }
 
         def apply(rec: Lambda, x0: D, x0b: P, x1: D, x1b: P, r: R) = { r.boxed = null; f(x1, x0) }

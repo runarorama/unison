@@ -3,7 +3,7 @@ package org.unisonweb.benchmark
 import org.unisonweb.Term
 import org.unisonweb.Term._
 import org.unisonweb.compilation._
-import org.unisonweb.benchmark.Builtins._
+import org.unisonweb.util.Builtins._
 
 object Fib extends App {
 
